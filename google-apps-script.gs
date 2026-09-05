@@ -21,7 +21,7 @@ function doPost(e) {
     if (payload.action === 'check') return json({ ok: !duplicate, error: duplicate || '' });
     if (payload.action !== 'submit') return json({ ok: false, error: 'Unknown request.' });
     if (duplicate) return json({ ok: false, error: duplicate });
-    sheet.appendRow([new Date(), d.fullName, d.contact, d.grade, d.course, d.branch, d.enrollment, d.dob, d.skcSince, d.sscSchool, d.hscSchool, d.experience, d.skcEvents, d.outsideEvents, d.links, d.styles, d.why, d.undertaking].map(safe));
+    sheet.appendRow([new Date(), d.fullName, d.contact, d.grade, d.course, d.branch, d.enrollment, d.dob, d.skcSince, d.sscSchool, d.hscSchool, d.experience, d.skcEvents, d.outsideEvents, d.links, listText(d.styles), d.why, listText(d.undertaking)].map(safe));
     return json({ ok: true });
   } finally { lock.releaseLock(); }
 }
@@ -36,8 +36,20 @@ function findDuplicate(sheet, fullName, contact) {
 }
 
 function safe(value) {
-  const text = Array.isArray(value) ? value.join(', ') : String(value || '');
+  const text = String(value || '');
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
+}
+
+function listText(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(String).join(', ');
+  if (typeof value === 'object') {
+    const entries = [];
+    for (const key in value) entries.push(String(value[key]));
+    if (entries.length) return entries.join(', ');
+  }
+  return String(value);
 }
 
 function json(data) {

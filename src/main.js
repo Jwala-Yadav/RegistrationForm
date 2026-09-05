@@ -50,7 +50,12 @@ registrationForm.addEventListener('submit', async (event) => {
   const data = { ...fields, ...identity, styles: [...registrationForm.querySelectorAll('[name="styles"]:checked')].map((x) => x.value), undertaking: [...registrationForm.querySelectorAll('[name="undertaking"]:checked')].map((x) => x.value) };
   if (!data.styles.length) { formMessage.textContent = 'Select at least one dance style.'; return; }
   button.disabled = true; formMessage.textContent = 'Saving your response to Google Sheet…';
-  try { await request('submit', data); submitToOriginalGoogleForm(data); } catch (error) { formMessage.textContent = error.message; button.disabled = false; return; }
+  const sheetData = {
+    ...data,
+    styles: data.styles.join(', '),
+    undertaking: data.undertaking.join(' ')
+  };
+  try { await request('submit', sheetData); submitToOriginalGoogleForm(data); } catch (error) { formMessage.textContent = error.message; button.disabled = false; return; }
   const summary = [`New TAAL TARANG registration`, '', `Name: ${data.fullName}`, `Contact: ${data.contact}`, `Grade/Year: ${data.grade}`, `Stream/Course: ${data.course}`, `Branch: ${data.branch}`, `Enrollment: ${data.enrollment}`, `Date of birth: ${data.dob}`, `Studying in SKC since: ${data.skcSince}`, `SSC School: ${data.sscSchool}`, `HSC School: ${data.hscSchool}`, `Dance experience: ${data.experience}`, `SKC events: ${data.skcEvents || 'Not provided'}`, `Other events: ${data.outsideEvents || 'Not provided'}`, `Links/achievements: ${data.links || 'Not provided'}`, `Dance styles: ${data.styles.join(', ')}`, `Why selected: ${data.why}`, 'Undertaking accepted: Yes'].join('\n');
   setTimeout(() => { formMessage.textContent = 'Opening WhatsApp…'; window.location.assign(`https://wa.me/${organiserWhatsApp}?text=${encodeURIComponent(summary)}`); }, 800);
 });
