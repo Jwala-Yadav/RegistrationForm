@@ -23,10 +23,9 @@ async function callGoogleSheet(action, data) {
 }
 
 app.post('/api/check-registration', async (req, res) => {
-  const { fullName, contact } = req.body;
-  if (!String(fullName || '').trim()) return res.status(400).json({ error: 'Enter Full Name.' });
+  const { contact } = req.body;
   if (!/^\d{10}$/.test(String(contact || ''))) return res.status(400).json({ error: 'Enter a valid 10-digit Contact Number.' });
-  try { await callGoogleSheet('check', { fullName, contact }); res.json({ ok: true }); }
+  try { await callGoogleSheet('check', { contact }); res.json({ ok: true }); }
   catch (error) { res.status(409).json({ error: error.message }); }
 });
 

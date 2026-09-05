@@ -13,7 +13,7 @@ function doPost(e) {
   const d = payload.data || {};
   // Checks are read-only, so they do not need to wait behind another visitor's save.
   if (payload.action === 'check') {
-    const duplicate = findDuplicate(getRegistrationSheet(), d.fullName, d.contact);
+    const duplicate = findDuplicate(getRegistrationSheet(), d.contact);
     return json({ ok: !duplicate, error: duplicate || '' });
   }
   if (payload.action !== 'submit') return json({ ok: false, error: 'Unknown request.' });
@@ -24,7 +24,7 @@ function doPost(e) {
   lock.waitLock(10000);
   try {
     const sheet = getRegistrationSheet();
-    const duplicate = findDuplicate(sheet, d.fullName, d.contact);
+    const duplicate = findDuplicate(sheet, d.contact);
     if (duplicate) return json({ ok: false, error: duplicate });
     sheet.appendRow([new Date(), d.fullName, d.contact, d.grade, d.course, d.branch, d.enrollment, d.dob, d.skcSince, d.sscSchool, d.hscSchool, d.experience, d.skcEvents, d.outsideEvents, d.links, listText(d.styles), d.why, listText(d.undertaking)].map(safe));
     return json({ ok: true });
@@ -38,13 +38,13 @@ function getRegistrationSheet() {
   return sheet;
 }
 
-function findDuplicate(sheet, fullName, contact) {
+function findDuplicate(sheet, contact) {
   const contactKey = normalizedContact(contact);
   const registrationCount = sheet.getLastRow() - 1;
   if (registrationCount < 1) return '';
   // Contact is the only unique field. Read just that one column for speed.
   const contacts = sheet.getRange(2, 3, registrationCount, 1).getValues();
-  if (contacts.some((row) => normalizedContact(row[0]) === contactKey)) return 'This Contact Number is already registered.';
+  if (contacts.some((row) => normalizedContact(row[0]) === contactKey)) return 'This contact number already exists. Please use a different number.';
   return '';
 }
 
