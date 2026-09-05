@@ -11,27 +11,42 @@ function doPost(e) {
   const payload = JSON.parse(e.postData.contents || '{}');
   if (payload.secret !== SCRIPT_SECRET) return json({ ok: false, error: 'Unauthorized' });
   const d = payload.data || {};
+  // Checks are read-only, so they do not need to wait behind another visitor's save.
+  if (payload.action === 'check') {
+    const duplicate = findDuplicate(getRegistrationSheet(), d.fullName, d.contact);
+    return json({ ok: !duplicate, error: duplicate || '' });
+  }
+  if (payload.action !== 'submit') return json({ ok: false, error: 'Unknown request.' });
+
+  // Keep the lock for saves and check again after acquiring it. This prevents
+  // two simultaneous visitors from registering the same name or number.
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = spreadsheet.getSheetByName(REGISTRATION_SHEET_NAME) || spreadsheet.insertSheet(REGISTRATION_SHEET_NAME);
-    if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+    const sheet = getRegistrationSheet();
     const duplicate = findDuplicate(sheet, d.fullName, d.contact);
-    if (payload.action === 'check') return json({ ok: !duplicate, error: duplicate || '' });
-    if (payload.action !== 'submit') return json({ ok: false, error: 'Unknown request.' });
     if (duplicate) return json({ ok: false, error: duplicate });
     sheet.appendRow([new Date(), d.fullName, d.contact, d.grade, d.course, d.branch, d.enrollment, d.dob, d.skcSince, d.sscSchool, d.hscSchool, d.experience, d.skcEvents, d.outsideEvents, d.links, listText(d.styles), d.why, listText(d.undertaking)].map(safe));
     return json({ ok: true });
   } finally { lock.releaseLock(); }
 }
 
+function getRegistrationSheet() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName(REGISTRATION_SHEET_NAME) || spreadsheet.insertSheet(REGISTRATION_SHEET_NAME);
+  if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+  return sheet;
+}
+
 function findDuplicate(sheet, fullName, contact) {
-  const rows = sheet.getDataRange().getValues().slice(1);
   const nameKey = String(fullName || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const contactKey = String(contact || '').replace(/\D/g, '');
-  if (rows.some((row) => String(row[1] || '').trim().replace(/\s+/g, ' ').toLowerCase() === nameKey)) return 'This Full Name is already registered.';
-  if (rows.some((row) => String(row[2] || '').replace(/\D/g, '') === contactKey)) return 'This Contact Number is already registered.';
+  const registrationCount = sheet.getLastRow() - 1;
+  if (registrationCount < 1) return '';
+  // Only the name and contact columns are needed for this check.
+  const rows = sheet.getRange(2, 2, registrationCount, 2).getValues();
+  if (rows.some((row) => String(row[0] || '').trim().replace(/\s+/g, ' ').toLowerCase() === nameKey)) return 'This Full Name is already registered.';
+  if (rows.some((row) => String(row[1] || '').replace(/\D/g, '') === contactKey)) return 'This Contact Number is already registered.';
   return '';
 }
 
