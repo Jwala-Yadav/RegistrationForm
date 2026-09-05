@@ -19,7 +19,7 @@ function doPost(e) {
   if (payload.action !== 'submit') return json({ ok: false, error: 'Unknown request.' });
 
   // Keep the lock for saves and check again after acquiring it. This prevents
-  // two simultaneous visitors from registering the same name or number.
+  // two simultaneous visitors from registering the same contact number.
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -39,15 +39,18 @@ function getRegistrationSheet() {
 }
 
 function findDuplicate(sheet, fullName, contact) {
-  const nameKey = String(fullName || '').trim().replace(/\s+/g, ' ').toLowerCase();
-  const contactKey = String(contact || '').replace(/\D/g, '');
+  const contactKey = normalizedContact(contact);
   const registrationCount = sheet.getLastRow() - 1;
   if (registrationCount < 1) return '';
-  // Only the name and contact columns are needed for this check.
-  const rows = sheet.getRange(2, 2, registrationCount, 2).getValues();
-  if (rows.some((row) => String(row[0] || '').trim().replace(/\s+/g, ' ').toLowerCase() === nameKey)) return 'This Full Name is already registered.';
-  if (rows.some((row) => String(row[1] || '').replace(/\D/g, '') === contactKey)) return 'This Contact Number is already registered.';
+  // Contact is the only unique field. Read just that one column for speed.
+  const contacts = sheet.getRange(2, 3, registrationCount, 1).getValues();
+  if (contacts.some((row) => normalizedContact(row[0]) === contactKey)) return 'This Contact Number is already registered.';
   return '';
+}
+
+function normalizedContact(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length === 12 && digits.slice(0, 2) === '91' ? digits.slice(2) : digits;
 }
 
 function safe(value) {
